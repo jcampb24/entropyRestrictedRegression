@@ -45,12 +45,14 @@ heads at their start positions.
 All instructions are zero-argument; the input and output tape heads
 advance automatically upon access.
 
-The output tape is initialized empty: no cell is punched until written. Each tape is finite but
-arbitrarily long. Execution stops in exactly three ways, all
-independent of the input's length: a HALT instruction fires (HALT is
-conditional; see the instruction set below); the program tape is
-exhausted on an instruction fetch; or the output tape is exhausted on
-a write. In every case, when execution stops a sensor rings a *bell*.
+The output tape is initialized empty: no cell is punched until written, and it
+is unbounded — it never limits the run. The input tapes are finite. Execution
+stops in one of two ways: a HALT instruction fires — which is data-dependent,
+since HALT tests a bit computed from what the machine has read — or it runs
+off the end of the program. Both are trivially terminating: the program is a
+finite sequence of instructions with no jump-back, so each instruction runs at
+most once and the run cannot fail to end. When execution stops a sensor rings
+a *bell*.
 The bell is not a diagnostic of how the machine stopped; it fires on
 every termination and signals readiness — "this machine is done; the
 machines downstream may begin." It is the synchronization primitive of
@@ -64,13 +66,13 @@ tape is therefore a loop with a fixed start and end, traversed in either
 direction. Reading is always well-defined because the head always rests on a
 valid cell. (Each motion acts on the active tape; the others hold their
 positions.) This makes a machine's runtime a property of its program alone —
-bounded by the program length and the header count, with HALT able to end it
+bounded by the program length, with HALT able to end it
 earlier — and fully decoupled from how long its input happens to be.
 
-Because the body is re-entered at most N times — the header count,
-fixed in the genome — the number of instructions a machine executes is
-bounded by N times the program length; a single machine cannot run
-forever, so the bell always eventually rings.
+Because the program is a finite straight-line sequence with no jump-back, each
+instruction executes at most once; the number of instructions a machine
+executes is therefore bounded by the program length, so a single machine
+cannot run forever, and the bell always eventually rings.
 
 ## Instruction set (4 bits per instruction)
 
@@ -109,12 +111,11 @@ The sixteen instructions partition into six categories:
   there is no jump and no risk of non-termination, only conditional
   data selection.
 - *Extended tape access.* PEEK reads without advancing; RETREAT moves the
-  input head backward. Together they make the active input tape random-access
-  rather than a consume-once stream, supporting functions that re-read their
-  input. Because the head wraps rather than clamps, a backward or forward walk
-  never idles at a boundary — it circles the tape; termination is guaranteed
-  not by the head but by the header count N, which bounds every machine to at
-  most N passes (see Architecture).
+  input head backward. The head persists through execution — it is never
+  reset — so a program re-reads its input by repositioning the head with
+  RETREAT, making the active input tape random-access rather than a
+  consume-once stream. Because the head wraps rather than clamps, a backward
+  or forward walk never idles at a boundary; it circles the tape.
 - *No-op.* NOOP does nothing, and is the only instruction neutral in
   every context and at every tape count.
 
@@ -132,29 +133,27 @@ later mutation can switch on.
 
 **Conditional HALT and the halt tail.** HALT is conditional: it pops
 the top of the stack and terminates only if that bit is 1, otherwise
-execution falls through to the next instruction. Its role is
-data-dependent *early* exit from a looping body (header N > 1) — for
-example, an arithmetic program that breaks out the moment it reads its
-terminator frame — and it expresses this without any jump.
+execution falls through to the next instruction. Its role is a
+data-dependent *early* stop: it ends execution before the program's
+remaining instructions run — for example, an arithmetic program that
+stops the moment it reads its terminator — and it expresses this without
+any jump.
 
-Single-shot programs do not need it. A program with header N = 1 runs
-its body once and then terminates structurally, when the substrate
-exhausts the loop count; the bell rings on that exhaustion. Such a
-program ends at its final POP — the instruction that writes the result —
-with no HALT and no halt tail; the one-bit passthrough below and the
-operator libraries in `arithmetic.md` are all of this form. The
-building-block forms used in composition go one step
-further and omit the POP as well, leaving the function's value on the
-stack.
+A program that never needs to stop early simply omits HALT and runs to
+its final instruction, ending at the final POP that writes the result;
+the one-bit passthrough below and the operator libraries in
+`arithmetic.md` are of this form. The building-block forms used in
+composition go one step further and omit the POP as well, leaving the
+function's value on the stack.
 
-The *halt tail* survives for the one case that still needs it: an
-unconditional break partway through a looping body. Since HALT fires
-only on a 1, a program forces termination by first placing a 1 on top
-of the stack; the canonical tail is the four-instruction sequence DUP,
-DUP, NAND, NAND, which yields NAND(x, NOT x) = 1 for the unknown top
-value x regardless of x — and yields 1 from the underlying zeros on an
-empty stack — immediately followed by HALT. A conditional break instead
-feeds HALT the relevant data bit directly.
+The *halt tail* forces an unconditional early stop, for a program that
+wants to end partway through regardless of data. Since HALT fires only
+on a 1, the program first places a 1 on top of the stack; the canonical
+tail is the four-instruction sequence DUP, DUP, NAND, NAND, which yields
+NAND(x, NOT x) = 1 for the unknown top value x regardless of x — and
+yields 1 from the underlying zeros on an empty stack — immediately
+followed by HALT. A conditional stop instead feeds HALT the relevant
+data bit directly.
 
 **Conditional POUR.** POUR is the bulk-output counterpart of POP and
 the third conditional action beside CMOV and HALT: it pops the top of
@@ -163,39 +162,11 @@ to the output, top element first, as bare bits, emptying the stack;
 execution then continues. Because the pour is top-first, pushing every
 input bit and then POURing reverses the input.
 
-## Program header and bounded iteration
-
-The first eight bits of the program tape are not instructions but a
-header: an unsigned loop count N in plain binary, 0 through 255. The
-remaining bits are the body. The substrate runs the body as a forward
-pass and repeats it up to N times — wrapping the program counter from
-the end of the tape back to the start of the body and decrementing an
-internal counter each pass, then terminating and ringing the bell when
-the counter reaches zero. Conditional HALT may end the run earlier, so
-the body executes min(data-driven HALT, N) times.
-
-The input head persists across iterations; it is not reset at the start
-of each pass. A body that reads one frame per pass therefore streams
-through successive frames over successive iterations, and a program that
-wants to re-scan re-positions the head itself with RETREAT.
-Over-reads past the end of the input wrap to the start, so a body
-that runs more passes than the input has frames re-reads from the
-beginning.
-
-Because N is fixed in the genome — compile-time, not data-time — the
-bounded loop is a compact unrolling of the body: it adds no
-computational power and leaves the machine combinational and
-always-terminating (see Structural properties). The gain is purely
-representational — depth tuned by an eight-bit count rather than by
-physically copying the body — and the count is an ordinary,
-high-leverage locus of the genome. No execution budget is needed; the
-header bound is the termination guarantee.
-
 ## Structural properties
 
 - **Closure under the encoding.** Every bit string of length divisible
-  by four is a syntactically valid program: the first eight bits read
-  as the loop count, the remaining groups of four as instructions.
+  by four is a syntactically valid program: each group of four bits is
+  an instruction, and the program is read straight through.
   There are no parse errors. The instruction set does not depend on the
   number of input tapes — that number is part of the configuration, not
   the encoding — so closure holds identically however many tapes are
@@ -209,11 +180,9 @@ header bound is the termination guarantee.
   supplies subsequent reads, but the choice is data-independent and
   adds no control flow. POUR transfers the stack to the tape and
   execution continues; the amount written is bounded by the stack
-  depth. The header may repeat the body a fixed
-  number of times N (see Program header and bounded iteration), but N
-  is compile-time, not data-time, so this is exactly a compact
-  unrolling — the computation it expresses is still straight-line and
-  acyclic when written out. A program therefore computes a fixed finite
+  depth. The program is a single straight-line pass with no jump-back,
+  so the computation it expresses is acyclic when written out. A
+  program therefore computes a fixed finite
   function of a bounded number of input bits, drawn across its input
   tapes, writing a bounded number of output bits — a Boolean circuit (the unbounded stack does not
   change this, since the program touches it a bounded number of times).
@@ -222,7 +191,7 @@ header bound is the termination guarantee.
   data-dependent iteration would leave this class, and that would
   require recurrence across the array, with time as the unrolled
   dimension. A corollary is that halting is trivial: the executed
-  instruction count is bounded by N times the program length, so every
+  instruction count is bounded by the program length, so every
   machine terminates, composed or not, with no execution budget
   required.
 - **Linear, not tree-structured.** Programs are flat instruction
