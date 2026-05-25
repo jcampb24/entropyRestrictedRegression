@@ -16,7 +16,7 @@ are not joined into a cycle:
   the hardware places no limit on the number of input ports. How many
   are attached is a property of the configuration, not of the machine.
   With at least one tape, exactly one is *active* at a time (the first,
-  initially); the input instructions PUSH, PEEK, ADVANCE, and INPUT-BACK
+  initially); the input instructions PEEK, ADVANCE, RETREAT, and EOT
   all act on the active tape, and NEXT-TAPE switches which tape is
   active, cycling through them. Each input tape keeps its own head,
   which persists while the tape is inactive, so switching away and back
@@ -45,7 +45,7 @@ heads at their start positions.
 All instructions are zero-argument; the input and output tape heads
 advance automatically upon access.
 
-The output tape is initialized to all zeros. Each tape is finite but
+The output tape is initialized empty: no cell is punched until written. Each tape is finite but
 arbitrarily long. Execution stops in exactly three ways, all
 independent of the input's length: a HALT instruction fires (HALT is
 conditional; see the instruction set below); the program tape is
@@ -57,19 +57,15 @@ machines downstream may begin." It is the synchronization primitive of
 the array. The contents of the output tape at termination constitute
 the program's output.
 
-No input tape terminates the machine. Each clamps at both of its own
-boundaries, independently: INPUT-BACK at the start position is a no-op,
-leaving the head on the first cell, and ADVANCE at the last position is
-a no-op, leaving the head on the last cell. PUSH at the last position
-reads that cell onto the stack but does not advance — it degrades to
-PEEK, since the clamp constrains the head's motion, not the read.
-Over-reading past the end therefore repeats the last bit, and
-over-reading before the start repeats the first bit; reading is always
-well-defined because no head ever leaves a valid cell. (Each of these
-acts on the active tape; the others hold their positions.) This makes a
-machine's runtime a property of its program alone — bounded by the
-program length and the HALT instructions within it — and fully
-decoupled from how long its input happens to be.
+No input tape terminates the machine. Each tape's head *wraps* at its
+boundaries, independently: ADVANCE past the last cell returns the head to
+the first cell, and RETREAT past the first cell returns it to the last. The
+tape is therefore a loop with a fixed start and end, traversed in either
+direction. Reading is always well-defined because the head always rests on a
+valid cell. (Each motion acts on the active tape; the others hold their
+positions.) This makes a machine's runtime a property of its program alone —
+bounded by the program length and the header count, with HALT able to end it
+earlier — and fully decoupled from how long its input happens to be.
 
 Because the body is re-entered at most N times — the header count,
 fixed in the genome — the number of instructions a machine executes is
@@ -80,11 +76,11 @@ forever, so the bell always eventually rings.
 
 | Opcode | Instruction | Effect                                                                       |
 |--------|-------------|------------------------------------------------------------------------------|
-| 0000   | PUSH        | Read the current input bit onto the stack; advance the active input tape, except at the last position, where the head stays put (the advance clamps and PUSH degrades to PEEK). |
-| 0001   | POP         | Write the stack top to the current output position, overwriting whatever bit was previously there; advance the output tape. |
+| 0000   | EOT         | Push 1 if the active input head is at the last cell, else push 0.            |
+| 0001   | POP         | Write the stack top to the current output position; advance the output tape. |
 | 0010   | NAND        | Remove the top two stack elements; push their NAND onto the stack.           |
 | 0011   | HALT        | Remove the top stack element; halt if it is 1, otherwise continue to the next instruction. |
-| 0100   | ADVANCE     | Advance the active input tape by one position without pushing; a no-op at the last position.           |
+| 0100   | ADVANCE     | Advance the active input tape by one position without reading; past the last cell, the head wraps to the first. |
 | 0101   | DUP         | Duplicate the top element of the stack.                                      |
 | 0110   | SWAP        | Swap the top two elements of the stack.                                      |
 | 0111   | NEXT-TAPE   | Switch to the next input tape, cyclically; with a single input tape, a no-op.   |
@@ -95,15 +91,14 @@ forever, so the bell always eventually rings.
 | 1100   | NOOP        | Do nothing.                                                                  |
 | 1101   | CMOV        | Pop the top three (c, a, b); push b if c is 1, push a if c is 0.             |
 | 1110   | PEEK        | Read the current input bit onto the stack without advancing the active input tape.  |
-| 1111   | INPUT-BACK  | Move the active input tape's head back one position; a no-op at the start position.   |
+| 1111   | RETREAT     | Move the active input tape's head back one position; past the first cell, the head wraps to the last. |
 
 The sixteen instructions partition into six categories:
 
-- *I/O and termination.* PUSH, POP, and ADVANCE manage input
-  consumption and output production; POUR empties the stack to the
-  output in one shot; NEXT-TAPE routes input by choosing
-  which tape is active; HALT manages termination. ADVANCE is a no-op at
-  the end of the active input tape, where the head clamps.
+- *I/O and termination.* POP produces output and EOT senses the input
+  boundary; ADVANCE and RETREAT move the input head, wrapping at the ends;
+  POUR empties the stack to the output in one shot; NEXT-TAPE routes input
+  by choosing which tape is active; HALT manages termination.
 - *Computation.* NAND is the sole Boolean primitive and the source of
   functional completeness.
 - *Basic stack manipulation.* DUP, SWAP, DROP, OVER, and ROT are the
@@ -113,13 +108,13 @@ The sixteen instructions partition into six categories:
   block of decision-rule policies. It introduces no control flow:
   there is no jump and no risk of non-termination, only conditional
   data selection.
-- *Extended tape access.* PEEK reads without advancing; INPUT-BACK
-  moves the input head backward. Together they lift the dependence on
-  input-tape-length conventions for functions that require re-reading
-  inputs, and they make the active input tape random-access rather than
-  a consume-once stream. Because the head clamps at both boundaries
-  (see Architecture), neither instruction can terminate the machine;
-  a backward walk that reaches the start simply idles there.
+- *Extended tape access.* PEEK reads without advancing; RETREAT moves the
+  input head backward. Together they make the active input tape random-access
+  rather than a consume-once stream, supporting functions that re-read their
+  input. Because the head wraps rather than clamps, a backward or forward walk
+  never idles at a boundary — it circles the tape; termination is guaranteed
+  not by the head but by the header count N, which bounds every machine to at
+  most N passes (see Architecture).
 - *No-op.* NOOP does nothing, and is the only instruction neutral in
   every context and at every tape count.
 
@@ -127,8 +122,7 @@ A dedicated no-op. NOOP does nothing, in every context and at every
 tape count. Neutrality an insertion mutation can rely on has to be
 unconditional, and NOOP is the only instruction that supplies it. The
 representation's mutation-absorbing "junk DNA" comes contextually as
-well: NEXT-TAPE does nothing on a one-tape machine, ADVANCE and
-INPUT-BACK do nothing against a clamped boundary, a value pushed and
+well: NEXT-TAPE does nothing on a one-tape machine, a value pushed and
 never popped never reaches the output. But each of those is neutral
 only in its context, and none is neutral on an arbitrary multi-tape
 machine. NOOP is the one symbol neutral everywhere — the clean
@@ -183,10 +177,10 @@ the body executes min(data-driven HALT, N) times.
 The input head persists across iterations; it is not reset at the start
 of each pass. A body that reads one frame per pass therefore streams
 through successive frames over successive iterations, and a program that
-wants to re-scan re-positions the head itself with INPUT-BACK.
-Over-reads past the end of the input follow the clamping rule, so a body
-that runs more passes than the input has frames simply re-reads the last
-cell.
+wants to re-scan re-positions the head itself with RETREAT.
+Over-reads past the end of the input wrap to the start, so a body
+that runs more passes than the input has frames re-reads from the
+beginning.
 
 Because N is fixed in the genome — compile-time, not data-time — the
 bounded loop is a compact unrolling of the body: it adds no
@@ -297,6 +291,18 @@ Brameier, M., and Banzhaf, W. (2007). *Linear Genetic Programming*. Springer.
 algorithm, and basic representation; the bias is toward register-based
 LGP with arithmetic primitives, so the general framework transfers but
 implementation details do not.
+
+Brodie, L. (1987). *Starting Forth* (online edition, FORTH, Inc.). Available
+at https://www.forth.com/starting-forth/. — The classic beginner's tutorial;
+Chapter 2, "Stack Manipulation Operators," introduces DUP, SWAP, OVER, DROP,
+and ROT with worked examples. The accessible companion to the standard for
+the stack-shuffling words.
+
+Forth Standard Committee. *Forth Standard* (the ongoing community standard,
+successor to ANS Forth X3.215-1994). Available at https://forth-standard.org.
+— Defines the core stack-manipulation words DUP, SWAP, DROP, OVER, and ROT,
+with the stack-effect notation `( before -- after )`; the source for the
+Forth tradition the basic stack-shuffling words follow.
 
 Koza, J. R. (1992). *Genetic Programming: On the Programming of
 Computers by Means of Natural Selection*. MIT Press.
