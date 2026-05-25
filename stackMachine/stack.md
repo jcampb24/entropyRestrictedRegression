@@ -223,14 +223,14 @@ Two dynamics worth keeping in view:
 
 ## Validation
 
-Agreed warm-up validation exercise: **evolve a program that computes
-the AND of the first two bits of the input tape** and writes the
-result to the first position of the output tape. One valid solution is
-the single-shot (header N = 1) program of length six — PUSH, PUSH,
-NAND, DUP, NAND, POP — exercising input reading, the NAND primitive,
-stack duplication, and output writing; many other programs compute the
-same function. A trivial prior sanity check is the same problem with
-NAND in place of AND, for which PUSH, PUSH, NAND, POP is one solution.
+Agreed warm-up exercise: **evolve a program that computes the AND of the
+first two bits of the input tape** and writes the result to the first
+position of the output tape. One valid solution is the length-eight program
+PEEK, ADVANCE, PEEK, ADVANCE, NAND, DUP, NAND, POP — exercising input
+reading, the NAND primitive, stack duplication, and output writing; many
+other programs compute the same function. A trivial prior sanity check is the
+same problem with NAND in place of AND, for which PEEK, ADVANCE, PEEK,
+ADVANCE, NAND, POP is one solution.
 
 ## Example programs
 
