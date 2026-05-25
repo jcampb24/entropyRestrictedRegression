@@ -206,8 +206,7 @@ A population of programs is searched stochastically over the space of
 bit strings of varying length.
 
 Genetic operators:
-- *Mutation* — substitute a single instruction at a random position
-  (equivalent to flipping one to four bits in the program tape).
+- *Mutation* — substitute a single instruction at a random position.
 - *Crossover* — splice contiguous subsequences from two parents.
 - *Insertion and deletion* — add or remove a single instruction,
   letting program length evolve.
@@ -233,25 +232,33 @@ stack duplication, and output writing; many other programs compute the
 same function. A trivial prior sanity check is the same problem with
 NAND in place of AND, for which PUSH, PUSH, NAND, POP is one solution.
 
-## Variable-length operators
+## Example programs
 
-Conditional HALT inside a header loop permits programs whose execution
-length depends on the data rather than being fixed in advance: the body
-repeats up to N times and HALT breaks out early when the data warrants.
-The simplest entry below is the single-bit passthrough — degenerate, in
-that its length does not depend on the data; genuinely length-dependent
-operators (arithmetic on arbitrary-length integers) build on the same
-conventions and are developed in `arithmetic.md`.
+Two short programs illustrate the instruction set. Both are straight-line:
+they read, compute, write, and run off the end, with no HALT needed.
 
-**One-bit passthrough**: PUSH, POP — length 2, header N = 1.
+**One-bit passthrough**: PEEK, POP — length 2.
 
-Read one input bit, write it to the output, then terminate. PUSH reads
-the bit and places it on the stack; POP writes it to the output and
-removes it. The single pass then completes, the substrate exhausts the
-loop count, and the machine terminates, ringing the bell. The output
-tape holds exactly the one bit that was read. This is the unary
-IDENTITY function, and the minimal validation of the
-architecture: one read, one write, structural termination, the bell.
+Read one input bit, write it to the output. PEEK places the current input
+bit on the stack; POP writes it to the output and removes it. Execution then
+runs off the end of the program and the machine terminates, ringing the bell.
+The output holds exactly the one bit that was read — the unary IDENTITY
+function, and the smallest exercise of the architecture: one read, one write,
+the bell.
+
+**Reverse three bits (via POUR)**: PEEK, ADVANCE, PEEK, ADVANCE, PEEK,
+ADVANCE, PEEK, PEEK, NAND, PEEK, NAND, POUR — length 12.
+
+Read three input bits, then emit them in reverse. The three PEEK, ADVANCE
+pairs read b₀, b₁, b₂ onto the stack, leaving b₂ on top. The next five
+instructions, PEEK, PEEK, NAND, PEEK, NAND, place a 1 on top of the stack
+without disturbing the three data bits: reading the current cell as b, the
+first NAND yields ¬b and the second yields ¬(¬b ∧ b) = 1, which holds whatever
+b is. POUR then pops that 1, fires, and drains the rest of the stack top-first
+— b₂, b₁, b₀ — the reversal. The bulk drain is what makes POUR a reversal: it
+empties the stack in last-in-first-out order in a single instruction. The
+width is fixed at three here; arbitrary-length reversal and the operators that
+build on it are developed in `arithmetic.md`.
 
 ## References
 
