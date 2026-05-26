@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="860" viewBox="0 0 680 860" role="img">
+<title>Flowchart of the decrement algorithm with a bounded loop</title>
+<desc>After the assignment e gets 0, a loop-limit symbol opens the loop with bound frame = 1 to N, N at most 255. Each pass reads the flag, writes the flag to the output, then tests whether the flag equals 1. If so the loop breaks early to Halt. Otherwise it reads the data bit, assigns out the value XNOR(e, data), writes the output bit, assigns e the value OR(e, data), and the matching loop-limit symbol closes the loop. When the count is exhausted the loop exits to the same Halt. Parallelograms are input/output; rectangles are computation; the chamfered boxes are the loop bound; rounded shapes are start and stop; the diamond is the branch. A note records that e is the complement of the borrow.</desc>
+<style>
+text{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.th{font-size:14px;font-weight:600;fill:#1d1d20}
+.ts{font-size:12.5px;fill:#4a4a52}
+.lbl{font-size:12.5px;fill:#5b5b62}
+.arr{stroke:#7a7a82;stroke-width:1.5;fill:none}
+@media (prefers-color-scheme:dark){.lbl{fill:#b9b9c2}.arr{stroke:#9a9aa2}}
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<rect x="175" y="32" width="250" height="52" rx="26" fill="#ececef" stroke="#c4c4ca" stroke-width="1"/>
+<text class="th" x="300" y="50" text-anchor="middle">Start</text>
+<text class="ts" x="300" y="68" text-anchor="middle">e ← 0</text>
+<line x1="300" y1="88" x2="300" y2="108" class="arr" marker-end="url(#arrow)"/>
+
+<polygon points="189,110 411,110 425,124 425,150 175,150 175,124" fill="#f2f2f5" stroke="#9a9aa2" stroke-width="1"/>
+<text class="th" x="300" y="130" text-anchor="middle" dominant-baseline="central">frame = 1 … N  (N ≤ 255)</text>
+<line x1="300" y1="154" x2="300" y2="174" class="arr" marker-end="url(#arrow)"/>
+
+<polygon points="191,176 425,176 409,216 175,216" fill="#e6f0fd" stroke="#5b8def" stroke-width="0.7"/>
+<text class="th" x="300" y="196" text-anchor="middle" dominant-baseline="central">Read flag</text>
+<line x1="300" y1="220" x2="300" y2="238" class="arr" marker-end="url(#arrow)"/>
+
+<polygon points="191,240 425,240 409,280 175,280" fill="#e6f0fd" stroke="#5b8def" stroke-width="0.7"/>
+<text class="th" x="300" y="260" text-anchor="middle" dominant-baseline="central">Write flag</text>
+<line x1="300" y1="284" x2="300" y2="304" class="arr" marker-end="url(#arrow)"/>
+
+<polygon points="300,306 376,342 300,378 224,342" fill="#f2f2f5" stroke="#9a9aa2" stroke-width="0.7"/>
+<text class="th" x="300" y="342" text-anchor="middle" dominant-baseline="central">flag = 1?</text>
+
+<text class="lbl" x="392" y="336" text-anchor="middle">yes</text>
+<path d="M376,342 L500,342 L500,776 L384,776" class="arr" fill="none" marker-end="url(#arrow)"/>
+
+<text class="lbl" x="312" y="396" text-anchor="start">no</text>
+<line x1="300" y1="380" x2="300" y2="402" class="arr" marker-end="url(#arrow)"/>
+
+<polygon points="191,404 425,404 409,444 175,444" fill="#e6f0fd" stroke="#5b8def" stroke-width="0.7"/>
+<text class="th" x="300" y="424" text-anchor="middle" dominant-baseline="central">Read data bit</text>
+<line x1="300" y1="448" x2="300" y2="466" class="arr" marker-end="url(#arrow)"/>
+
+<rect x="175" y="468" width="250" height="52" rx="8" fill="#efe9fb" stroke="#a98fe0" stroke-width="1"/>
+<text class="th" x="300" y="486" text-anchor="middle">Compute output bit</text>
+<text class="ts" x="300" y="504" text-anchor="middle">out ← XNOR(e, data)</text>
+<line x1="300" y1="520" x2="300" y2="542" class="arr" marker-end="url(#arrow)"/>
+
+<polygon points="191,544 425,544 409,584 175,584" fill="#e6f0fd" stroke="#5b8def" stroke-width="0.7"/>
+<text class="th" x="300" y="564" text-anchor="middle" dominant-baseline="central">Write output bit</text>
+<line x1="300" y1="588" x2="300" y2="606" class="arr" marker-end="url(#arrow)"/>
+
+<rect x="175" y="608" width="250" height="52" rx="8" fill="#efe9fb" stroke="#a98fe0" stroke-width="1"/>
+<text class="th" x="300" y="626" text-anchor="middle">Update state</text>
+<text class="ts" x="300" y="644" text-anchor="middle">e ← OR(e, data)</text>
+<line x1="300" y1="660" x2="300" y2="682" class="arr" marker-end="url(#arrow)"/>
+
+<polygon points="175,684 425,684 425,710 411,724 189,724 175,710" fill="#f2f2f5" stroke="#9a9aa2" stroke-width="1"/>
+<text class="ts" x="300" y="703" text-anchor="middle" dominant-baseline="central">frame</text>
+<text class="lbl" x="314" y="741" text-anchor="start">after N passes</text>
+<line x1="300" y1="724" x2="300" y2="748" class="arr" marker-end="url(#arrow)"/>
+
+<rect x="220" y="750" width="160" height="52" rx="26" fill="#ececef" stroke="#c4c4ca" stroke-width="1"/>
+<text class="th" x="300" y="776" text-anchor="middle" dominant-baseline="central">Halt</text>
+
+<text class="lbl" x="40" y="834" text-anchor="start">Note: e is the complement of the borrow; e = 0 means a borrow is still pending.</text>
+</svg>
