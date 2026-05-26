@@ -11,6 +11,15 @@ not by a terminator, so a single program serves an input of any width up to its
 unroll depth — 256 body copies — and truncates a longer input to the first 256
 bits.
 
+**Modular standard.** The number of digits expressing an integer is its number
+system: a width-*w* number lives in ℤ/2^*w*, and every operation is modular at
+the width of its operands. Arithmetic neither grows nor shrinks the width to
+chase a value — a carry off the top or a borrow past the bottom simply falls
+away, so `increment(all-ones_w) = all-zeros_w` and
+`decrement(all-zeros_w) = all-ones_w`, each the wrap of its own width. Width is
+therefore a property the operand carries, not a global constant; the same
+program serves every width, and the modulus rides in with the data.
+
 **Presentation.** Each program is an optional header (runs once), a body shown
 once between ellipses and unrolled up to N ≤ 256 times, and an optional footer.
 Every program opens and closes with a NOOP, so the header and footer are never
