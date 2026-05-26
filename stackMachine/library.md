@@ -135,13 +135,15 @@ read bit itself once it is dead, and the carry counts as dead the moment an
 output 1 appears.
 
 After the last input bit the carry might still be alive, which happens only when
-every input bit equalled one. The operator always writes this final carry as one
-more bit, so its output is always one bit longer than its input. When the carry
-had already been killed, that last bit is a 0 — a leading zero that leaves the
-value unchanged, which the companion operator `nibble` removes when a tight
-width is wanted. Only when the carry was still alive at the end is the last bit
-a 1: the new top place value of a number that has just rolled over, one digit
-wider than before.
+every input bit equalled one. Increment appends nothing — its output is the same
+width as its input — so a surviving carry simply falls off the end, and an
+all-ones input emerges as all zeros: the wrap of `(2^w − 1) + 1` back to 0,
+mod 2^w at the input's own width. This is the exact mirror of `decrement`, whose
+borrow falls off to wrap 0 to all ones; the digit count of a number is its
+number system, and increment respects that count rather than widening past it.
+Increment can still leave a leading zero, a genuine one rather than a
+manufactured one: `increment([0,0])` is `[1,0]`, the value 1 in two bits, which
+the companion operator `nibble` trims when a tight width is wanted.
 
 ```
 NOOP        *header*
@@ -162,15 +164,9 @@ SWAP
 DUP
 NAND
 NAND        *new_d = OR(d, out) — the carry-state for the next bit*
-DUP
-NAND        *carry-out = ¬new_d — the bit to append at the end*
 EOT         *push 1 iff at the last cell*
-POUR        *at the last cell, emit the carry-out and empty the stack*
-EOT         *push 1 iff at the last cell, again*
 HALT        *halt if so*
-DUP
-NAND        *interior: recover new_d from the carry-out*
-ADVANCE     *step to the next bit*
+ADVANCE     *otherwise step to the next bit*
 ...
 NOOP        *footer — reached only if the input is longer than 256 bits*
 ```
@@ -178,8 +174,9 @@ NOOP        *footer — reached only if the input is longer than 256 bits*
 The header's DUP seeds d = 0 for the first copy; a column entering with d = 1 is
 therefore a later copy. The walkthrough below traces eight cases. Legend: `i` =
 interior bit (EOT = 0); `L` = the 256th / last bit (EOT = 1); the two digits are
-(d, x), the carry-state and the data bit. Stacks are top-cell-first (top row =
-top of stack).
+(d, x), the carry-state and the data bit. Through the core the matched `i` and
+`L` columns coincide — nothing reads EOT until step 16 — so they part only at
+the tail. Stacks are top-cell-first (top row = top of stack).
 
 **Entry.** The body begins carrying d.
 
@@ -304,68 +301,30 @@ top of stack).
 |---|---|---|---|---|---|---|---|---|
 | new_d | 1 | 0 | 1 | 1 | 1 | 0 | 1 | 1 |
 
-**16. DUP** — copy new_d.
-
-| stack | i00 | i01 | i10 | i11 | L00 | L01 | L10 | L11 |
-|---|---|---|---|---|---|---|---|---|
-| new_d | 1 | 0 | 1 | 1 | 1 | 0 | 1 | 1 |
-| new_d | 1 | 0 | 1 | 1 | 1 | 0 | 1 | 1 |
-
-**17. NAND** — NAND the two copies → ¬new_d = carry-out.
-
-| stack | i00 | i01 | i10 | i11 | L00 | L01 | L10 | L11 |
-|---|---|---|---|---|---|---|---|---|
-| carry-out | 0 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-
-**18. EOT** — push 1 iff the head is at the last cell.
+**16. EOT** — push 1 iff the head is at the last cell.
 
 | stack | i00 | i01 | i10 | i11 | L00 | L01 | L10 | L11 |
 |---|---|---|---|---|---|---|---|---|
 | EOT | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
-| carry-out | 0 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
+| new_d | 1 | 0 | 1 | 1 | 1 | 0 | 1 | 1 |
 
-**19. POUR** — pop the top; if 1, drain the rest (the carry-out) to the output and empty; else inert. The L columns emit their carry-out here: 0, 1, 0, 0.
-
-| stack | i00 | i01 | i10 | i11 | L00 | L01 | L10 | L11 |
-|---|---|---|---|---|---|---|---|---|
-| carry-out | 0 | 1 | 0 | 0 | — | — | — | — |
-
-**20. EOT** — push 1 iff at the last cell, again.
+**17. HALT** — pop the top; halt iff 1. The L columns stop here, having emitted only out.
 
 | stack | i00 | i01 | i10 | i11 | L00 | L01 | L10 | L11 |
 |---|---|---|---|---|---|---|---|---|
-| EOT | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
-| carry-out | 0 | 1 | 0 | 0 | — | — | — | — |
+| new_d | 1 | 0 | 1 | 1 | halts | halts | halts | halts |
 
-**21. HALT** — pop the top; halt iff 1. The L columns stop here, having emitted out then the carry-out.
-
-| stack | i00 | i01 | i10 | i11 | L00 | L01 | L10 | L11 |
-|---|---|---|---|---|---|---|---|---|
-| carry-out | 0 | 1 | 0 | 0 | halts | halts | halts | halts |
-
-**22. DUP** — (interior) copy the carry-out.
-
-| stack | i00 | i01 | i10 | i11 | L00 | L01 | L10 | L11 |
-|---|---|---|---|---|---|---|---|---|
-| carry-out | 0 | 1 | 0 | 0 | — | — | — | — |
-| carry-out | 0 | 1 | 0 | 0 | — | — | — | — |
-
-**23. NAND** — (interior) NAND the two copies, recovering new_d.
+**18. ADVANCE** — step to the next bit; the stack carries new_d into the next copy.
 
 | stack | i00 | i01 | i10 | i11 | L00 | L01 | L10 | L11 |
 |---|---|---|---|---|---|---|---|---|
 | new_d | 1 | 0 | 1 | 1 | — | — | — | — |
 
-**24. ADVANCE** — step to the next bit; the stack carries new_d into the next copy.
-
-| stack | i00 | i01 | i10 | i11 | L00 | L01 | L10 | L11 |
-|---|---|---|---|---|---|---|---|---|
-| new_d | 1 | 0 | 1 | 1 | — | — | — | — |
-
-Every last-bit column halts after emitting out and then a carry-out bit, so each
-produces a 257th bit. Only L01 — carry alive, last bit one, the full 256 ones —
-makes that bit a 1, the genuine overflow to 2^256; L00, L10, and L11 each emit a
-high 0 that `nibble` would trim.
+Every last-bit column emits its single output bit at step 9 and then halts — no
+carry-out, nothing appended. Column L01 is the telling one: the carry is still
+alive after the last bit (new_d = 0), the all-ones case, and it simply falls off
+the end — which is why an all-ones input emerges as all zeros, the wrap of
+`(2^w − 1) + 1` mod 2^w. The mirror of `decrement`'s column L00.
 
 ## `decrement` (subtract one)
 
