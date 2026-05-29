@@ -44,6 +44,10 @@ If `inputs` is empty, every input read (PEEK, EOT) returns 1, and
 ADVANCE, RETREAT, and NEXT-TAPE are no-ops. This implements the bias
 unit of `stack.md`.
 
+An empty tape (a `BitVector` of length zero) is treated identically to
+an absent tape: EOT fires immediately (returns 1), PEEK returns 1, and
+ADVANCE and RETREAT are no-ops on that tape.
+
 ### Wrapping
 
 ADVANCE past the last cell of the active tape wraps to cell 1.

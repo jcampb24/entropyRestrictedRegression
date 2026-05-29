@@ -64,12 +64,14 @@ end
 @inline function tape_read(s::VMState)::Bool
     isempty(s.tapes) && return true   # bias unit: no tape returns 1
     tape = s.tapes[s.active]
+    isempty(tape) && return true      # empty tape reads as 1
     return tape[s.heads[s.active]]
 end
 
 @inline function tape_eot(s::VMState)::Bool
-    isempty(s.tapes) && return false
+    isempty(s.tapes) && return true
     tape = s.tapes[s.active]
+    isempty(tape) && return true      # empty tape is always at EOT
     return s.heads[s.active] == length(tape)
 end
 
