@@ -1,0 +1,134 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+# ---------------------------------------------------------------------------
+# Opcode table — follows the instruction table in stack.md exactly.
+# ---------------------------------------------------------------------------
+
+my %OPCODES = (
+    'EOT'       => 0x00,
+    'POP'       => 0x01,
+    'NAND'      => 0x02,
+    'HALT'      => 0x03,
+    'ADVANCE'   => 0x04,
+    'DUP'       => 0x05,
+    'SWAP'      => 0x06,
+    'NEXT-TAPE' => 0x07,
+    'DROP'      => 0x08,
+    'OVER'      => 0x09,
+    'ROT'       => 0x0A,
+    'POUR'      => 0x0B,
+    'NOOP'      => 0x0C,
+    'CMOV'      => 0x0D,
+    'PEEK'      => 0x0E,
+    'RETREAT'   => 0x0F,
+);
+
+# ---------------------------------------------------------------------------
+# Usage
+# ---------------------------------------------------------------------------
+
+my $HELP = <<'END';
+usage: asm <source.asm> <output.bc>
+
+Assemble a stack machine program to bytecode.
+
+  <source.asm>   Assembly source file.
+  <output.bc>    Binary output file (one byte per instruction).
+
+Source language:
+  One mnemonic per line. Blank lines and *...*  comments are ignored.
+  START_LOOP n / END_LOOP repeats the enclosed block n times (no nesting).
+
+Mnemonics:
+  EOT  POP  NAND  HALT  ADVANCE  DUP   SWAP  NEXT-TAPE
+  DROP OVER ROT   POUR  NOOP     CMOV  PEEK  RETREAT
+END
+
+if (@ARGV == 1 && ($ARGV[0] eq '-h' || $ARGV[0] eq '--help')) {
+    print $HELP;
+    exit 0;
+}
+
+@ARGV == 2 or die "usage: asm <source.asm> <output.bc>\n";
+my ($src_path, $out_path) = @ARGV;
+
+# ---------------------------------------------------------------------------
+# Pass 1: read source and strip comments (* ... *)
+# ---------------------------------------------------------------------------
+
+open my $fh, '<', $src_path or die "asm: cannot open '$src_path': $!\n";
+my $source = do { local $/; <$fh> };
+close $fh;
+
+my $stripped = '';
+while (length $source) {
+    my $open = index($source, '*');
+    if ($open == -1) {
+        $stripped .= $source;
+        last;
+    }
+    $stripped .= substr($source, 0, $open);
+    my $close = index($source, '*', $open + 1);
+    die "asm: unclosed comment in '$src_path'\n" if $close == -1;
+    $source = substr($source, $close + 1);
+}
+
+# ---------------------------------------------------------------------------
+# Pass 2: expand START_LOOP n / END_LOOP blocks (no nesting)
+# ---------------------------------------------------------------------------
+
+my @lines = split /\n/, $stripped;
+my @expanded;
+my $i = 0;
+while ($i < @lines) {
+    my $line = $lines[$i];
+    if ($line =~ /^\s*START_LOOP\s+(\d+)\s*$/) {
+        my $count = $1;
+        $count >= 1 or die "asm: START_LOOP count must be >= 1 at line ${\($i+1)}\n";
+        my @body;
+        $i++;
+        my $found_end = 0;
+        while ($i < @lines) {
+            if ($lines[$i] =~ /^\s*END_LOOP\s*$/) {
+                $found_end = 1;
+                last;
+            }
+            if ($lines[$i] =~ /^\s*START_LOOP\b/) {
+                die "asm: nested START_LOOP at line ${\($i+1)} — loops may not be nested\n";
+            }
+            push @body, $lines[$i];
+            $i++;
+        }
+        $found_end or die "asm: START_LOOP has no matching END_LOOP\n";
+        push @expanded, @body for 1 .. $count;
+    } elsif ($line =~ /^\s*END_LOOP\s*$/) {
+        die "asm: END_LOOP at line ${\($i+1)} has no matching START_LOOP\n";
+    } else {
+        push @expanded, $line;
+    }
+    $i++;
+}
+
+# ---------------------------------------------------------------------------
+# Pass 3: tokenise and assemble
+# ---------------------------------------------------------------------------
+
+my @bytecode;
+for my $line (@expanded) {
+    for my $token (split ' ', $line) {
+        exists $OPCODES{$token}
+            or die "asm: unrecognised mnemonic '$token'\n";
+        push @bytecode, $OPCODES{$token};
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Write binary output
+# ---------------------------------------------------------------------------
+
+open my $out, '>', $out_path or die "asm: cannot write '$out_path': $!\n";
+binmode $out;
+print $out pack('C*', @bytecode);
+close $out;
