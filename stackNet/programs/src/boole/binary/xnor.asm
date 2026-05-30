@@ -1,4 +1,4 @@
-* xnor.asm — bitwise XNOR of two input tapes, up to 256 bits, LSB-first *
+* xnor.asm — bitwise XNOR of two input tapes, up to 256 bits *
 * halts when either tape reaches its last cell                          *
 * XNOR(a,b) = 1 iff a = b: output NOT a if b=0, else a                 *
 

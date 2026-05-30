@@ -1,4 +1,4 @@
-* identity.asm — copy input to output, up to 256 bits, LSB-first *
+* identity.asm — copy input to output, up to 256 bits *
 
 START_LOOP 256
 PEEK    * [..., x]  — read current bit *

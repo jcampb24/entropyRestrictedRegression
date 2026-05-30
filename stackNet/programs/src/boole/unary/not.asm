@@ -1,4 +1,4 @@
-* not.asm — bitwise NOT, up to 256 bits, LSB-first *
+* not.asm — bitwise NOT, up to 256 bits *
 
 START_LOOP 256
 PEEK

@@ -1,4 +1,4 @@
-* true.asm — constant 1 per input bit, up to 256 bits, LSB-first *
+* true.asm — constant 1 per input bit, up to 256 bits *
 
 NOOP    * header *
 

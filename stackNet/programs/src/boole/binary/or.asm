@@ -1,4 +1,4 @@
-* or.asm — bitwise OR of two input tapes, up to 256 bits, LSB-first *
+* or.asm — bitwise OR of two input tapes, up to 256 bits *
 * halts when either tape reaches its last cell                        *
 
 NOOP       * header *
