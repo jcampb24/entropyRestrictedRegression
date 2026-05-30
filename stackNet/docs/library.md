@@ -227,6 +227,29 @@ binary operation.
 
 **TRUE** is the nullary entry above.
 
+### Possible extension: ternary Boolean operators
+
+There are 2^(2^3) = 256 ternary Boolean functions {0,1}³ → {0,1}. Each reads
+three input tapes in lockstep and halts when any tape reaches its last cell.
+Every ternary function is expressible by composing binary operators in the CGP
+network, so the ternary library is not strictly necessary. Whether direct access
+to ternary primitives improves CGP search efficiency — by shortening effective
+program lengths or reducing the search space — is an open empirical question
+that should be revisited once the CGP framework is operational.
+
+## Utilities already available as Boolean operators
+
+Several utility functions that might otherwise be written from scratch are
+already present in the Boolean operator library. `wire` is identical to the
+unary `identity` program — both emit each input bit unchanged and halt at
+end-of-tape. The unary `true` and `false` programs serve as constant-stream
+generators, producing a stream of ones or zeros matching the length of their
+input, which covers the common need to zero-fill or one-fill a channel. The
+binary projections `a` and `b` pass one tape through while consuming the other
+in lockstep, which is useful when a downstream node needs only one of two
+inputs but must respect the shared termination convention. These programs are
+not duplicated here; the Boolean operator library is the canonical source.
+
 ## `wire` (add zero / identity)
 
 The identity on a number: emit each input bit unchanged, stopping when the
@@ -299,6 +322,41 @@ behavior on a bare [0].
 `nibble` is the one-bit case of a more general `chomp` that would strip *all*
 trailing high-order zeros; `chomp` is noted here only for context and is not
 developed.
+
+## `snack` (drop a high-order one)
+
+Pass the number through unchanged, except remove its high-order bit — the last
+bit read, LSB-first — when that bit is one. A droppable leading one is trimmed;
+a high 0 is kept. The complement of `nibble`: where `nibble` removes a leading
+zero, `snack` removes a leading one. Output width equals input width, or one
+less when the high bit is a dropped one.
+
+```
+NOOP       *header*
+...
+PEEK       *read the current bit — the payload to maybe emit*
+DUP
+EOT        *push 1 iff the head is at the last cell*
+NAND       *NAND(EOT, bit) = ¬EOT ∨ ¬bit — the emit trigger*
+POUR       *emit the bit iff the trigger is 1; empties the stack when it fires*
+EOT        *push 1 iff the head is at the last cell, again*
+HALT       *halt if so*
+ADVANCE    *otherwise step to the next bit*
+...
+NOOP       *footer — reached only if the input is longer than 256 bits*
+```
+
+The emit trigger ¬EOT ∨ ¬bit reads as the rule directly: emit the bit unless it
+is the last one and it is one. On an interior bit EOT = 0, so the trigger is 1
+and POUR always fires, draining the single payload bit and emptying the stack;
+the second EOT pushes 0, HALT does not fire, and ADVANCE steps on. On the last
+bit EOT = 1, so the trigger equals ¬bit: a 0 fires POUR and is emitted, a 1
+leaves POUR inert and is discarded at termination, after which the second EOT
+pushes 1 and HALT stops. The stack is empty between body copies, so `snack` is
+memoryless.
+
+Edge case: a single-bit input [1] is a last bit of one, so it is dropped and
+the output is empty. The mirror of `nibble`'s edge case on [0].
 
 ## `reversebits` (bit-reversal)
 
